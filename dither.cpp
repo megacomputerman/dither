@@ -11,6 +11,7 @@
 //
 //
 
+////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,11 +23,13 @@ using namespace std;
 
 int** CriarMatriz   (int x,   int y);         // Cria Matriz dinâmicamente
 int** DestruirMatriz(int **M, int x, int y);  // Libera a memória alocada pela matriz
+int** DestruirMatriz(int** M, int x, int y);  // Libera a memória alocada pela matriz
 void  ImprimirMatriz(int** M, int x, int y);  // Imprime os valores de uma matriz
 
 int** CriarMatrizDither(int N);
-void  GetLineColum  ( string line, int* x, int* y );
-int   GetValue      ( string line );
+void  GsetLineColum  (string line, int* x, int* y); // Captura as dimensões da matriz
+int   GetValue      (string line);                 // Captura o valor da matriz numa posição x,y
+
 int   SaveResult    (char* fileName);           // Gera novo arquivo já aplicado dither
 int   ReplaceValue  (string line, char* value); // Substitui os valores da matriz O pra o novo arquivo
 
@@ -43,40 +46,13 @@ int main(int argc,char* argv[])
   int   iValue = 0;
   char  chNo = 0;
   
-  int** matriz;
   int** D;
-  
-  string strBuff;
+  int** I;
 
   if(argc <= 1)
   {
     printf("\nInforme o nome do arquivo com extensão,\nfaça assim: %s nome_arquivo.extensão\n\n", argv[0] );
     return -1;
-  }
-
-  ifstream arq( argv[1] );
-  if (!arq)
-  {
-    perror("Erro ao abrir o arquivo ");
-    system("pause");
-    return -1;
-  }
-
-  // Ler o tamanho da matriz
-  getline( arq, strBuff );
-  GetLineColum(strBuff, &linhas, &colunas );
-
-  if ((linhas < 1) || (colunas < 1)) {
-    printf("\nErro, linha ou coluna inválidos\n");
-    exit(1);
-  }
-
-  matriz = CriarMatriz(linhas, colunas);
-  // testa se a matriz foi alocada corretamente, e se nao foi, aborta a
-  // execução do programa.
-  if (matriz == NULL) {
-    printf("\nErro, ao criar matriz\n");
-    exit(1);
   }
 
   if ( argv[2] != NULL )
@@ -90,30 +66,24 @@ int main(int argc,char* argv[])
   
   D = CriarMatrizDither( x );
   if (D == NULL) {
-    printf("\nErro, ao criar matriz\n");
+    printf("\nErro, ao criar matriz dither\n");
+    exit(1);
+  }
+  puts( "Matriz dither:" );
+  ImprimirMatriz( D, x*x, x*x );
+
+  //puts( "Matriz Imagem:" );
+  I = CarregarMatrizImagem( argv[1] )
+  if (I == NULL) {
+    printf("\nErro, ao criar matriz imagem\n");
     exit(1);
   }
   
-  ImprimirMatriz( D, x*x, x*x );
-
   O = CriarMatriz(linhas, colunas);
   if (O == NULL) {
-    printf("\nErro, ao criar matriz\n");
+    printf("\nErro, ao criar matriz resultante\n");
     exit(1);
   }
-
-  puts( "Preenchendo a matriz Imagem\n" );
-
-  // Preenche a matriz Imagem 
-  for (y = 0 ; y < colunas ; y++) {
-    for (x = 0 ; x < linhas ; x++) {
-      
-      getline( arq, strBuff );
-      matriz[x][y] = GetValue( strBuff );
-    }
-  }
-
-  arq.close();
 
   puts( "aplicando dither ordenado\n" );
   // aplicando dither ordenado
@@ -125,7 +95,7 @@ int main(int argc,char* argv[])
       
       printf( "x=%d y=%d i = %d j = %d\n", x,y,i,j );
       //printf( "%d > %d\n", matriz[x][y], D[i][j] );
-      if ( matriz[x][y] > D[i][j] )
+      if ( I[x][y] > D[i][j] )
       {
         O[x][y] = 1;
       }
@@ -138,7 +108,7 @@ int main(int argc,char* argv[])
 
   puts( "aplicou dither" );
 
-  ImprimirMatriz( matriz, linhas, colunas );
+  ImprimirMatriz( I, linhas, colunas );
   ImprimirMatriz( O, linhas, colunas );
 
   puts( "Imprimiu as matrizes" );
@@ -148,7 +118,7 @@ int main(int argc,char* argv[])
   puts( "Salvou o resultado" );
 
    // Libera o espaço em memória alocado pela matriz
-  DestruirMatriz(matriz, linhas, colunas);
+  DestruirMatriz(I, linhas, colunas);
   DestruirMatriz(O, linhas, colunas);
 
   return 0;
@@ -211,45 +181,91 @@ int **DestruirMatriz(int **mat, int linhas, int colunas ) {
   for (x = 0 ; x < linhas ; x++) free(mat[x]);
     free(mat);
    
-   return NULL;   
+   return NULL;
 }
+
 
 int** CriarMatrizDither(int N)
 {
- int** D  = NULL;
- const unsigned dim = 1 << N;
+  int** D = NULL;
+  const unsigned dim = 1 << N;
 
- D = CriarMatriz(dim, dim);
- if (D == NULL) {
-  printf("\nErro ao criar matriz\n");
-  return NULL;
-}
-
-//printf(" X=%u, Y=%u:\n", dim,dim);
-for(unsigned y=0; y<dim; ++y)
-{
-  //printf("   ");
-  for(unsigned x=0; x<dim; ++x)
-  {
-    unsigned v = 0, mask = N-1, xc = x ^ y, yc = y;
-
-    for(unsigned bit=0; bit < 2*N; --mask)
-    { 
-      v |= ((yc >> mask)&1) << bit++;
-      v |= ((xc >> mask)&1) << bit++;
-    }
-    //printf("%4d", v);
-    D[y][x] = v;
-    
+  D = CriarMatriz(dim, dim);
+  if (D == NULL) {
+    printf("\nErro ao criar matriz\n");
+    return D;
   }
-  //printf(" |");
-  if(y == 0) printf(" 1/%u", dim * dim);
-  //printf("\n");
+
+  //printf(" X=%u, Y=%u:\n", dim,dim);
+  for(unsigned y=0; y<dim; ++y)
+  {
+    //printf("   ");
+    for(unsigned x=0; x<dim; ++x)
+    {
+      unsigned v = 0, mask = N-1, xc = x ^ y, yc = y;
+
+      for(unsigned bit=0; bit < 2*N; --mask)
+      { 
+        v |= ((yc >> mask)&1) << bit++;
+        v |= ((xc >> mask)&1) << bit++;
+      }
+      //printf("%4d", v);
+      D[y][x] = v;
+      
+    }
+    //printf(" |");
+    if(y == 0) printf(" 1/%u", dim * dim);
+    //printf("\n");
+  }
+  return D;
 }
 
-return D;
 
-} 
+int** CarregarMatrizImagem(char* fileName)
+{
+  int** I = NULL;
+  int   x = 0;
+  int   y = 0;
+
+  string strBuff;
+
+  // Abre arquivo para leitura
+  ifstream file( fileName );
+  if (!file)
+  {
+    perror("Erro ao abrir o arquivo ");
+    return I;
+  }
+
+  // Ler o tamanho da matriz
+  getline( file, strBuff );
+  GetLineColum(strBuff, &linhas, &colunas );
+  if ((linhas < 1) || (colunas < 1)) {
+    printf("\nErro, linha ou coluna inválidos\n");
+    return I;
+  }
+
+  I = CriarMatriz(linhas, colunas);
+  // testa se a matriz foi alocada corretamente, e se nao foi, aborta a
+  // execução do programa.
+  if (I == NULL) {
+    printf("\nErro, ao criar matriz\n");
+    return I;
+  }
+
+  puts( "Preenchendo a matriz Imagem\n" );
+  // Preenche a matriz Imagem 
+  for (y = 0 ; y < colunas ; y++) {
+    for (x = 0 ; x < linhas ; x++) {
+      getline( file, strBuff );
+      I[x][y] = GetValue( strBuff );
+    }
+  }
+  file.close();
+
+  return I;
+}
+
 
 void GetLineColum( string line, int* x, int* y )
 {
