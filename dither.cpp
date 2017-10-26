@@ -10,7 +10,6 @@
 //
 //
 //
-
 ////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
@@ -22,13 +21,13 @@ using namespace std;
 
 
 int** CriarMatriz   (int x,   int y);         // Cria Matriz dinâmicamente
-int** DestruirMatriz(int **M, int x, int y);  // Libera a memória alocada pela matriz
 int** DestruirMatriz(int** M, int x, int y);  // Libera a memória alocada pela matriz
 void  ImprimirMatriz(int** M, int x, int y);  // Imprime os valores de uma matriz
 
 int** CriarMatrizDither(int N);
 void  GsetLineColum  (string line, int* x, int* y); // Captura as dimensões da matriz
 int   GetValue      (string line);                 // Captura o valor da matriz numa posição x,y
+int** CarregarMatrizImagem(char* fileName);        // Carrega a matriz imagem de um arquivo txt
 
 int   SaveResult    (char* fileName);           // Gera novo arquivo já aplicado dither
 int   ReplaceValue  (string line, char* value); // Substitui os valores da matriz O pra o novo arquivo
@@ -73,7 +72,7 @@ int main(int argc,char* argv[])
   ImprimirMatriz( D, x*x, x*x );
 
   //puts( "Matriz Imagem:" );
-  I = CarregarMatrizImagem( argv[1] )
+  I = CarregarMatrizImagem( argv[1] );
   if (I == NULL) {
     printf("\nErro, ao criar matriz imagem\n");
     exit(1);
@@ -221,6 +220,34 @@ int** CriarMatrizDither(int N)
 }
 
 
+void GetLineColum( string line, int* x, int* y )
+{
+  string strAux;
+  int iPosition = 0;
+  
+  iPosition = line.find(':') + 2;
+  strAux = line.substr( iPosition, ( line.find(',') - iPosition ) );
+  *x = atoi( strAux.c_str() );
+
+  iPosition = line.find(',') + 1;
+  strAux = line.substr( iPosition, ( line.find(',', iPosition) - iPosition ) );
+  *y = atoi( strAux.c_str() );
+
+}
+
+
+int GetValue( string line )
+{
+  int iPosition = 0;
+  string strAux;
+
+  iPosition = line.find('(') + 1;
+  strAux = line.substr( iPosition, (line.find( ',', 5 ) - iPosition) );
+  
+  return atoi(strAux.c_str());
+}
+
+
 int** CarregarMatrizImagem(char* fileName)
 {
   int** I = NULL;
@@ -264,34 +291,6 @@ int** CarregarMatrizImagem(char* fileName)
   file.close();
 
   return I;
-}
-
-
-void GetLineColum( string line, int* x, int* y )
-{
-  string strAux;
-  int iPosition = 0;
-  
-  iPosition = line.find(':') + 2;
-  strAux = line.substr( iPosition, ( line.find(',') - iPosition ) );
-  *x = atoi( strAux.c_str() );
-
-  iPosition = line.find(',') + 1;
-  strAux = line.substr( iPosition, ( line.find(',', iPosition) - iPosition ) );
-  *y = atoi( strAux.c_str() );
-
-}
-
-
-int GetValue( string line )
-{
-  int iPosition = 0;
-  string strAux;
-
-  iPosition = line.find('(') + 1;
-  strAux = line.substr( iPosition, (line.find( ',', 5 ) - iPosition) );
-  
-  return atoi(strAux.c_str());
 }
 
 
