@@ -26,27 +26,26 @@ void  ImprimirMatriz(int** M, int x, int y);  // Imprime os valores de uma matri
 
 int** CriarMatrizDither(int N);
 void  GsetLineColum  (string line, int* x, int* y); // Captura as dimensões da matriz
-int   GetValue      (string line);                 // Captura o valor da matriz numa posição x,y
-int** CarregarMatrizImagem(char* fileName);        // Carrega a matriz imagem de um arquivo txt
+int   GetValue      (string line);                  // Captura o valor da matriz numa posição x,y
+int** CarregarMatrizImagem(char* fileName);         // Carrega a matriz imagem de um arquivo txt
+int** DitherOrdenado( int** D, int ** I );          // Aplica o algoritmo de dither
 
-int   SaveResult    (char* fileName);           // Gera novo arquivo já aplicado dither
-int   ReplaceValue  (string line, char* value); // Substitui os valores da matriz O pra o novo arquivo
+int   ReplaceValue   (string line, char* value); // Substitui os valores da matriz O pra o novo arquivo
+int   SalvarResultado(char* fileName, int** O);  // Salva em um novo arquivo a matriz resultante do dither ordernado
 
-int **O;
 int linhas, colunas;
 
 string g_strBuffer;
-string g_strFile;
 
 int main(int argc,char* argv[])
 {
 
-  int   x, y, i, j;
-  int   iValue = 0;
-  char  chNo = 0;
-  
-  int** D;
-  int** I;
+  int iSize = 0;
+
+  int** D; // Matriz dither
+  int** I; // Matriz Imagem
+  int** O; // Matriz Resultante
+
 
   if(argc <= 1)
   {
@@ -56,67 +55,37 @@ int main(int argc,char* argv[])
 
   if ( argv[2] != NULL )
   {
-    x = atoi( argv[2] );
+    iSize = atoi( argv[2] );
   }
   else
   {
-    x = 4;
+    iSize = 4;
   }
   
-  D = CriarMatrizDither( x );
+  D = CriarMatrizDither( iSize );
   if (D == NULL) {
     printf("\nErro, ao criar matriz dither\n");
-    exit(1);
+    return -1;
   }
-  puts( "Matriz dither:" );
-  ImprimirMatriz( D, x*x, x*x );
+//  puts( "Matriz dither:" );
+//  ImprimirMatriz( D, iSize*iSize, iSize*iSize );
 
-  //puts( "Matriz Imagem:" );
   I = CarregarMatrizImagem( argv[1] );
   if (I == NULL) {
     printf("\nErro, ao criar matriz imagem\n");
-    exit(1);
+    return -1;
   }
   
-  O = CriarMatriz(linhas, colunas);
+  O = DitherOrdenado( D, I );
   if (O == NULL) {
-    printf("\nErro, ao criar matriz resultante\n");
-    exit(1);
+    return -1;
   }
 
-  puts( "aplicando dither ordenado\n" );
-  // aplicando dither ordenado
-  for (x = 0 ; x < linhas ; x++) {
-    for (y = 0 ; y < colunas ; y++) {
-
-      i = x%linhas;
-      j = y%linhas;
-      
-      printf( "x=%d y=%d i = %d j = %d\n", x,y,i,j );
-      //printf( "%d > %d\n", matriz[x][y], D[i][j] );
-      if ( I[x][y] > D[i][j] )
-      {
-        O[x][y] = 1;
-      }
-      else
-      {
-        O[x][y] = 0;
-      }
-    }
-  }
-
-  puts( "aplicou dither" );
-
-  ImprimirMatriz( I, linhas, colunas );
-  ImprimirMatriz( O, linhas, colunas );
-
-  puts( "Imprimiu as matrizes" );
-
-  SaveResult( argv[1] );
+  SalvarResultado( argv[1], O );
 
   puts( "Salvou o resultado" );
 
-   // Libera o espaço em memória alocado pela matriz
+  // Libera o espaço em memória alocado pela matriz
   DestruirMatriz(I, linhas, colunas);
   DestruirMatriz(O, linhas, colunas);
 
@@ -216,6 +185,8 @@ int** CriarMatrizDither(int N)
     if(y == 0) printf(" 1/%u", dim * dim);
     //printf("\n");
   }
+  puts( "Criou matriz dither" );
+  
   return D;
 }
 
@@ -290,11 +261,61 @@ int** CarregarMatrizImagem(char* fileName)
   }
   file.close();
 
+  puts( "Carregou matriz Imagem" );
   return I;
 }
 
 
-int SaveResult( char* fileName )
+int** DitherOrdenado( int** D, int** I )
+{
+  int** O = NULL;
+  int   x, y, i, j;
+  
+  O = CriarMatriz(linhas, colunas);
+  if (O == NULL) {
+    printf("\nErro, ao criar matriz resultante\n");
+    return O;
+  }
+
+  puts( "aplicando dither ordenado\n" );
+  // aplicando dither ordenado
+  for (x = 0 ; x < linhas ; x++) {
+    for (y = 0 ; y < colunas ; y++) {
+
+      i = x%linhas;
+      j = y%linhas;
+      
+      //printf( "x=%d y=%d i = %d j = %d\n", x,y,i,j );
+      //printf( "%d > %d\n", matriz[x][y], D[i][j] );
+      if ( I[x][y] > D[i][j] )
+      {
+        O[x][y] = 1;
+      }
+      else
+      {
+        O[x][y] = 0;
+      }
+    }
+  }
+
+  puts( "aplicou dither" );
+  return O;
+}
+
+
+int ReplaceValue( string line, char* szValue )
+{
+  string aux;
+  aux = line.substr(0, (line.find( '(' ) + 1) );
+  aux = aux + szValue;
+  aux = aux + line.substr( line.find( ',', 5 ) );
+  g_strBuffer = aux + "\n";
+
+  return 0;
+}
+
+
+int SalvarResultado( char* fileName, int** O )
 {
   string line;
   char szValue[10];
@@ -341,15 +362,4 @@ int SaveResult( char* fileName )
 
   return 0;
 
-}
-
-int ReplaceValue( string line, char* szValue )
-{
-  string aux;
-  aux = line.substr(0, (line.find( '(' ) + 1) );
-  aux = aux + szValue;
-  aux = aux + line.substr( line.find( ',', 5 ) );
-  g_strBuffer = aux + "\n";
-
-  return 0;
 }
