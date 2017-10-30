@@ -9,7 +9,6 @@
 // Descript. : Aplica o dither em uma imagem .bmp
 //
 //
-//
 ////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdio.h>
@@ -19,13 +18,17 @@
 
 using namespace std;
 
+#define BRANCO 255
+#define PRETO 0
+
+void log( string strlog ); // Cria o log de execução
 
 int** CriarMatriz   (int x,   int y);         // Cria Matriz dinâmicamente
 int** DestruirMatriz(int** M, int x, int y);  // Libera a memória alocada pela matriz
 void  ImprimirMatriz(int** M, int x, int y);  // Imprime os valores de uma matriz
 
 int** CriarMatrizDither(int N);
-void  GsetLineColum  (string line, int* x, int* y); // Captura as dimensões da matriz
+void  GsetLineColum (string line, int* x, int* y);  // Captura as dimensões da matriz
 int   GetValue      (string line);                  // Captura o valor da matriz numa posição x,y
 int** CarregarMatrizImagem(char* fileName);         // Carrega a matriz imagem de um arquivo txt
 int** DitherOrdenado( int** D, int ** I );          // Aplica o algoritmo de dither
@@ -36,16 +39,18 @@ int   SalvarResultado(char* fileName, int** O);  // Salva em um novo arquivo a m
 int linhas, colunas;
 
 string g_strBuffer;
+char   g_achBuffer[100];
 
 int main(int argc,char* argv[])
 {
 
   int iSize = 0;
 
-  int** D; // Matriz dither
+  int** D; // Matriz Dither
   int** I; // Matriz Imagem
   int** O; // Matriz Resultante
-
+ 
+  log ( "\n------ Nova execução ------\n\n");
 
   if(argc <= 1)
   {
@@ -61,35 +66,57 @@ int main(int argc,char* argv[])
   {
     iSize = 4;
   }
-  
+
+  puts( "Carregando matriz imagem" );
+  I = CarregarMatrizImagem( argv[1] );
+  if (I == NULL) {
+    printf("\nErro, ao carregar matriz imagem\n");
+    return -1;
+  }
+  log( "\nMatriz imagem:\n" );
+  ImprimirMatriz( I, linhas, colunas );
+  log( "\n--------------------\n" );
+
+  puts( "Criando matriz dither" );
   D = CriarMatrizDither( iSize );
   if (D == NULL) {
     printf("\nErro, ao criar matriz dither\n");
     return -1;
   }
-//  puts( "Matriz dither:" );
-//  ImprimirMatriz( D, iSize*iSize, iSize*iSize );
 
-  I = CarregarMatrizImagem( argv[1] );
-  if (I == NULL) {
-    printf("\nErro, ao criar matriz imagem\n");
+  puts( "Aplicando dither ordenado" );
+  O = DitherOrdenado( D, I );
+  if (O == NULL) {
+    log( "Erro durante a ordenação\n" );
     return -1;
   }
   
-  O = DitherOrdenado( D, I );
-  if (O == NULL) {
-    return -1;
-  }
-
+  puts( "Salvando o resultado" );
   SalvarResultado( argv[1], O );
-
-  puts( "Salvou o resultado" );
 
   // Libera o espaço em memória alocado pela matriz
   DestruirMatriz(I, linhas, colunas);
+  DestruirMatriz(D, linhas, colunas);
   DestruirMatriz(O, linhas, colunas);
 
+  puts( "Terminou com sucesso" );
+
   return 0;
+}
+
+
+void log( string strLog )
+{
+  ofstream file( "log_dither.txt", ofstream::out | ofstream::app );
+  if (!file)
+  {
+    perror("Erro ao abrir o arquivo ");
+    return;
+  }
+
+  file << strLog;
+
+  file.close();
 }
 
 
@@ -124,30 +151,33 @@ void ImprimirMatriz( int** M, int linha, int coluna )
   for (y = 0 ; y < coluna ; y++) {
     
     printf("\n");
+    log( "\n" );
     
     for (x = 0 ; x < linha ; x++) {
     
-      printf("\(%d,%d\) = %d\n", x, y, M[x][y] );
+      sprintf( g_achBuffer, "\(%d,%d\) = %d\n", x, y, M[x][y] );
+      printf( g_achBuffer );
+      log( g_achBuffer );
     
     }
   }
 }
 
 
-int **DestruirMatriz(int **mat, int linhas, int colunas ) {
+int **DestruirMatriz(int **M, int linha, int coluna ) {
   int x;
 
-  if ((linhas < 1) || (colunas < 1)) {
+  if ((linha < 1) || (coluna < 1)) {
 
     printf("\nErro, parâmetro inválido (func: DestruirMatriz)\n");
     exit(1);
    
    }
 
-  if (mat == NULL) return NULL;
+  if (M == NULL) return NULL;
   
-  for (x = 0 ; x < linhas ; x++) free(mat[x]);
-    free(mat);
+  for (x = 0 ; x < linha ; x++) free(M[x]);
+    free(M);
    
    return NULL;
 }
@@ -155,19 +185,24 @@ int **DestruirMatriz(int **mat, int linhas, int colunas ) {
 
 int** CriarMatrizDither(int N)
 {
-  int** D = NULL;
+  int** D  = NULL;
+  int** DD = NULL;
+  int x=0, y=0, i=0, j=0;
+
   const unsigned dim = 1 << N;
 
+  // Cria matriz dither
   D = CriarMatriz(dim, dim);
   if (D == NULL) {
-    printf("\nErro ao criar matriz\n");
+    log("\nErro ao criar matriz\n");
     return D;
   }
 
-  //printf(" X=%u, Y=%u:\n", dim,dim);
+  sprintf(g_achBuffer, "\nMatriz dither %ux%u:\n\n", dim, dim);
+  log( g_achBuffer );
   for(unsigned y=0; y<dim; ++y)
   {
-    //printf("   ");
+    log( "   " );
     for(unsigned x=0; x<dim; ++x)
     {
       unsigned v = 0, mask = N-1, xc = x ^ y, yc = y;
@@ -177,17 +212,40 @@ int** CriarMatrizDither(int N)
         v |= ((yc >> mask)&1) << bit++;
         v |= ((xc >> mask)&1) << bit++;
       }
-      //printf("%4d", v);
+      sprintf(g_achBuffer, "%5d", v);
+      log( g_achBuffer );
       D[y][x] = v;
       
     }
-    //printf(" |");
-    if(y == 0) printf(" 1/%u", dim * dim);
-    //printf("\n");
+    log(" |");
+    if(y == 0)
+    {
+      sprintf( g_achBuffer, "1/%u", dim * dim ); 
+      //printf(" 1/%u", dim * dim);
+      log( g_achBuffer );
+    }
+    log("\n");
   }
-  puts( "Criou matriz dither" );
+  log( "\n--------------------\n" );
+
+  // Ajusta a matriz dither a dimensão da imagem
+  DD = CriarMatriz(linhas, colunas);
+  if (DD == NULL) {
+    log("Erro ao criar matriz\n");
+    return D;
+  }
+  for (y = 0 ; y < colunas ; y++) {
+    if( j == (N-1) ) j = 0;
+    for (x = 0 ; x < linhas ; x++) {
+      if( i == (N-1) ) i = 0;
+      DD[x][y] = D[i][j];
+      i++;
+    }
+    j++;
+  }
+  DestruirMatriz( D, dim, dim );
   
-  return D;
+  return DD;
 }
 
 
@@ -277,23 +335,24 @@ int** DitherOrdenado( int** D, int** I )
     return O;
   }
 
-  puts( "aplicando dither ordenado\n" );
-  // aplicando dither ordenado
+  log( "\nAplicando algoritmo dither ordenado:\n\n" );
   for (x = 0 ; x < linhas ; x++) {
     for (y = 0 ; y < colunas ; y++) {
 
       i = x%linhas;
       j = y%linhas;
       
-      //printf( "x=%d y=%d i = %d j = %d\n", x,y,i,j );
-      //printf( "%d > %d\n", matriz[x][y], D[i][j] );
+      sprintf( g_achBuffer, "x=%d y=%d i =%d j =%d\n", x,y,i,j );
+      log( g_achBuffer );
+      sprintf( g_achBuffer, "%d > %d\n", I[x][y], D[i][j] );
+      log( g_achBuffer );
       if ( I[x][y] > D[i][j] )
       {
-        O[x][y] = 1;
+        O[x][y] = BRANCO;
       }
       else
       {
-        O[x][y] = 0;
+        O[x][y] = PRETO;
       }
     }
   }
@@ -307,8 +366,8 @@ int ReplaceValue( string line, char* szValue )
 {
   string aux;
   aux = line.substr(0, (line.find( '(' ) + 1) );
-  aux = aux + szValue;
-  aux = aux + line.substr( line.find( ',', 5 ) );
+  aux = aux + szValue + "," + szValue + "," + szValue;
+  aux = aux + line.substr( line.find( ')' ) );
   g_strBuffer = aux + "\n";
 
   return 0;
